@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rota de Estudos IA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Layout: painel de resumo no topo, trilha de 12 semanas à esquerda, semana aberta à direita, diário de estudo embaixo */
+:root{
+  --bg:#F2F4F7; --surface:#FFFFFF; --sunken:#E9EDF2; --ink:#131B26; --muted:#5B6676; --line:#DCE1E8;
+  --accent:#2B54D9; --accent-ink:#FFFFFF; --accent-soft:#E3EAFD;
+  --done:#1C7F53; --done-soft:#DCF1E6; --warn:#A9520A; --warn-soft:#FBEAD7;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E131B; --surface:#161D28; --sunken:#111821; --ink:#E7ECF3; --muted:#95A2B4; --line:#273143;
+  --accent:#7C9BFF; --accent-ink:#0E131B; --accent-soft:#1C2848;
+  --done:#4CC08A; --done-soft:#123020; --warn:#F0A35C; --warn-soft:#372514; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E131B; --surface:#161D28; --sunken:#111821; --ink:#E7ECF3; --muted:#95A2B4; --line:#273143;
+  --accent:#7C9BFF; --accent-ink:#0E131B; --accent-soft:#1C2848;
+  --done:#4CC08A; --done-soft:#123020; --warn:#F0A35C; --warn-soft:#372514; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 64px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:flex;flex-direction:column;gap:28px}
+a{color:var(--accent)}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.label{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* topo */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 32px}
+.top h1{font-family:var(--f-display);font-weight:800;font-size:clamp(34px,6vw,54px);line-height:1;margin:6px 0 8px;letter-spacing:-.02em;text-wrap:balance}
+.top p{margin:0;color:var(--muted);max-width:60ch}
+.top-ctrl{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field input,.field select,.field textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.chip{font-family:var(--f-mono);font-size:12px;padding:5px 10px;border-radius:99px;background:var(--sunken);color:var(--muted);white-space:nowrap}
+.chip.ok{background:var(--done-soft);color:var(--done)}
+.chip.bad{background:var(--warn-soft);color:var(--warn)}
+
+/* resumo */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.stat{background:var(--surface);padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.stat .v{font-family:var(--f-display);font-weight:800;font-size:32px;line-height:1.05;font-variant-numeric:tabular-nums}
+.stat .v small{font-size:16px;color:var(--muted);font-weight:600}
+.stat .s{font-size:13.5px;color:var(--muted)}
+.bar{height:6px;border-radius:99px;background:var(--sunken);overflow:hidden}
+.bar > i{display:block;height:100%;background:var(--accent);border-radius:inherit;transition:width .4s ease}
+@media (max-width:760px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* área principal */
+.main{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:860px){.main{grid-template-columns:minmax(0,1fr)}}
+.phase{display:flex;flex-direction:column;gap:6px}
+.phase + .phase{margin-top:18px}
+.phase-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 4px 2px}
+.phase-head b{font-family:var(--f-display);font-weight:600;font-size:15px}
+.week-btn{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:4px 12px;
+  padding:10px 12px;border-radius:8px;border:1px solid transparent;background:transparent}
+.week-btn:hover{background:var(--surface);border-color:var(--line)}
+.week-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.week-btn[aria-current="true"]{background:var(--surface);border-color:var(--accent)}
+.week-btn .n{font-family:var(--f-mono);font-size:13px;font-weight:600;color:var(--muted);width:2.4em}
+.week-btn .t{font-weight:600;font-size:15px;line-height:1.3;min-width:0}
+.week-btn .bar{grid-column:2 / 4;height:4px}
+.week-btn.is-done .bar > i{background:var(--done)}
+.pill{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;white-space:nowrap}
+.pill.done{background:var(--done-soft);color:var(--done)}
+.pill.now{background:var(--accent);color:var(--accent-ink)}
+.pill.late{background:var(--warn-soft);color:var(--warn)}
+.pill.next{background:var(--sunken);color:var(--muted)}
+
+.detail{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:24px clamp(18px,3vw,32px);display:flex;flex-direction:column;gap:22px;min-width:0}
+.detail h2{font-family:var(--f-display);font-weight:800;font-size:clamp(24px,3.4vw,32px);line-height:1.1;margin:4px 0 6px;text-wrap:balance}
+.detail .goal{margin:0;color:var(--muted);max-width:65ch}
+.dhead{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
+.nav{display:flex;gap:6px}
+.btn{cursor:pointer;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;font-weight:600;font-size:14px}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{color:var(--accent-ink);filter:brightness(1.08)}
+.btn:disabled{opacity:.4;cursor:default}
+.block{display:flex;flex-direction:column;gap:10px}
+.block h3{margin:0}
+.tasks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.task label{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;padding:8px 10px;margin:0 -10px;border-radius:8px;cursor:pointer}
+.task label:hover{background:var(--sunken)}
+.task input{appearance:none;width:20px;height:20px;margin:2px 0 0;border:2px solid var(--line);border-radius:6px;display:grid;place-content:center;cursor:pointer;background:var(--surface)}
+.task input::after{content:"";width:10px;height:6px;border:solid var(--accent-ink);border-width:0 0 2.5px 2.5px;transform:rotate(-45deg) translate(1px,-1px);opacity:0}
+.task input:checked{background:var(--done);border-color:var(--done)}
+.task input:checked::after{opacity:1}
+.task.checked span{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
+.task.deliv label{background:var(--accent-soft)}
+.task.deliv .tag{display:inline-block;margin-right:6px;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.reads{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.reads a{display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;color:var(--ink);max-width:100%}
+.reads a:hover{border-color:var(--accent);color:var(--accent)}
+.reads a .src{font-family:var(--f-mono);font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+textarea#notes{width:100%;min-height:110px;resize:vertical;background:var(--sunken);border:1px solid var(--line);border-radius:8px;padding:10px 12px;line-height:1.5}
+.hint{font-size:13px;color:var(--muted);margin:0}
+
+/* diário */
+.log{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px}
+@media (max-width:860px){.log{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0}
+.logform{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.logform .full{grid-column:1 / -1}
+@media (max-width:480px){.logform{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.logform .wk{grid-column:1 / -1}}
+.entries{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;max-height:340px;overflow:auto}
+.entries li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;padding:10px 0;border-top:1px solid var(--line);align-items:start}
+.entries li:first-child{border-top:0}
+.entries .d{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);padding-top:2px}
+.entries .txt{overflow-wrap:anywhere}
+.entries .m{font-family:var(--f-mono);font-size:13px;font-weight:600}
+.entries .del{all:unset;cursor:pointer;color:var(--muted);font-size:12px;grid-column:3}
+.entries .del:hover{color:var(--warn)}
+.entries .del:focus-visible{outline:2px solid var(--accent)}
+.empty{color:var(--muted);font-size:14.5px;padding:8px 0}
+.chart{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;align-items:end;height:150px;padding-top:18px;border-bottom:1px solid var(--line);position:relative}
+.chart .col{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:4px;min-width:0}
+.chart .b{width:100%;max-width:34px;background:var(--accent-soft);border-radius:4px 4px 0 0;min-height:2px;transition:height .4s ease}
+.chart .col.cur .b{background:var(--accent)}
+.chart .hv{font-family:var(--f-mono);font-size:10.5px;color:var(--muted);white-space:nowrap}
+.chart-x{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;text-align:center;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+
+/* regras */
+details.rules{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 22px}
+details.rules summary{cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:18px}
+details.rules ol{margin:14px 0 4px;padding-left:22px;display:flex;flex-direction:column;gap:8px;max-width:75ch}
+details.rules li b{font-weight:700}
+/* dropdown customizado (substitui o <select> nativo) */
+.dd{position:relative}
+.dd-btn{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;line-height:1.5}
+.dd-btn:hover{border-color:var(--accent)}
+.dd-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dd-btn::after{content:"";width:7px;height:7px;border:solid var(--muted);border-width:0 2px 2px 0;transform:rotate(45deg) translate(-2px,-2px);flex:none}
+.dd.open .dd-btn{border-color:var(--accent)}
+.dd-list{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);margin:0;padding:4px;list-style:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.14);max-height:240px;overflow:auto}
+.dd-list li{padding:6px 10px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.dd-list li[aria-selected="true"]{color:var(--accent);font-weight:700}
+.dd-list li.act{background:var(--accent-soft)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom, 0px));background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<style>body{margin:0}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="label">12 semanas · Spring Boot + Angular → IA</div>
+      <h1>Rota de Estudos IA</h1>
+      <p>Menos curso, mais projeto. Cada fase termina com algo no GitHub e em produção.</p>
+    </div>
+    <div class="top-ctrl">
+      <div class="field">
+        <label class="label" for="start">Início do plano</label>
+        <input type="date" id="start">
+      </div>
+      <span class="chip" id="sync">Carregando…</span>
+    </div>
+  </header>
+
+  <section class="stats" aria-label="Resumo">
+    <div class="stat">
+      <span class="label">Progresso geral</span>
+      <span class="v mono" id="st-pct">0<small>%</small></span>
+      <div class="bar"><i id="st-bar" style="width:0%"></i></div>
+      <span class="s" id="st-tasks">0 de 0 tarefas</span>
+    </div>
+    <div class="stat">
+      <span class="label">Semana atual</span>
+      <span class="v" id="st-week">01<small> / 12</small></span>
+      <span class="s" id="st-week-s">Defina a data de início</span>
+    </div>
+    <div class="stat">
+      <span class="label">Horas estudadas</span>
+      <span class="v" id="st-hours">0<small> h</small></span>
+      <span class="s" id="st-hours-s">Nenhuma sessão registrada</span>
+    </div>
+    <div class="stat">
+      <span class="label">Entregas</span>
+      <span class="v" id="st-del">0<small> / 5</small></span>
+      <span class="s" id="st-del-s">Próxima: semana 3</span>
+    </div>
+  </section>
+
+  <section class="main">
+    <nav id="timeline" aria-label="Semanas do plano"></nav>
+
+    <article class="detail" id="detail">
+      <div class="dhead">
+        <div>
+          <div class="label" id="d-eyebrow"></div>
+          <h2 id="d-title"></h2>
+          <p class="goal" id="d-goal"></p>
+        </div>
+        <div class="nav">
+          <button class="btn" id="prev" aria-label="Semana anterior">← Anterior</button>
+          <button class="btn" id="next" aria-label="Próxima semana">Próxima →</button>
+        </div>
+      </div>
+      <div class="block">
+        <div class="label" id="d-count"></div>
+        <ul class="tasks" id="d-tasks"></ul>
+      </div>
+      <div class="block">
+        <div class="label">Leitura e referência</div>
+        <ul class="reads" id="d-reads"></ul>
+      </div>
+      <div class="block">
+        <label class="label" for="notes">Anotações da semana</label>
+        <textarea id="notes" placeholder="O que aprendeu, onde travou, o que o agente errou…"></textarea>
+        <p class="hint" id="notes-hint">Salva sozinho enquanto você digita.</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="log">
+    <div class="panel">
+      <h2>Diário de estudo</h2>
+      <form class="logform" id="logform">
+        <div class="field">
+          <label class="label" for="lg-date">Data</label>
+          <input type="date" id="lg-date" required>
+        </div>
+        <div class="field">
+          <label class="label" for="lg-min">Minutos</label>
+          <input type="number" id="lg-min" min="5" max="720" step="5" value="60" required>
+        </div>
+        <div class="field wk">
+          <label class="label" for="lg-wk">Semana</label>
+          <div class="dd" id="lg-wk-dd"><button type="button" class="dd-btn" id="lg-wk" aria-haspopup="listbox" aria-expanded="false"><span id="lg-wk-v">Semana 01</span></button><ul class="dd-list" id="lg-wk-list" role="listbox" aria-labelledby="lg-wk" tabindex="-1" hidden></ul></div>
+        </div>
+        <div class="field full">
+          <label class="label" for="lg-txt">O que fez</label>
+          <input type="text" id="lg-txt" maxlength="200" placeholder="Ex.: SSE no Spring Boot funcionando com o Angular" required>
+        </div>
+        <div class="full"><button class="btn primary" type="submit">Registrar sessão</button></div>
+      </form>
+      <ul class="entries" id="entries"></ul>
+    </div>
+    <div class="panel">
+      <h2>Horas por semana do plano</h2>
+      <div class="chart" id="chart" aria-label="Horas estudadas em cada semana do plano"></div>
+      <div class="chart-x" id="chart-x"></div>
+      <p class="hint">A barra em destaque é a semana atual. Meta sugerida: cerca de 9 h por semana (1 h por dia útil e um bloco de 4 h no fim de semana).</p>
+    </div>
+  </section>
+
+  <details class="rules" id="rules">
+    <summary>As regras do jogo</summary>
+    <ol>
+      <li><b>Não existe atalho.</b> Só conta o que você construiu, quebrou e consertou.</li>
+      <li><b>Todo estudo vira projeto no GitHub e deploy.</b> Se ficou no localhost, não existe.</li>
+      <li><b>Use IA para programar desde o primeiro dia</b> e leia cada diff. Se não entende o que o agente escreveu, o problema é seu.</li>
+      <li><b>Desconfie do hype.</b> Para cada termo da moda, pergunte: isso muda algo no código que eu escrevo?</li>
+      <li><b>Meça.</b> Sem eval ou benchmark, é opinião, não conclusão.</li>
+      <li><b>Escreva sobre o que aprendeu.</b> Explicar é o teste real de que você entendeu.</li>
+    </ol>
+  </details>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const AK = "akitaonrails.com";
+const PHASES = [
+  {name:"Fundamentos e uso diário", weeks:[1,2,3]},
+  {name:"LLM dentro de app de verdade", weeks:[4,5,6]},
+  {name:"RAG e agentes", weeks:[7,8,9]},
+  {name:"Benchmark, crítica e projeto final", weeks:[10,11,12]},
+];
+const WEEKS = {
+  1:{t:"O que é um LLM, de verdade", g:"Parar de tratar IA como mágica: entender token, contexto e por que o modelo alucina.",
+    tasks:["Ler o post Hello World de LLM e reproduzir o chat local","Assistir “Intro to Large Language Models” do Karpathy","Instalar o Ollama e rodar o primeiro modelo local","Anotar com suas palavras: token, context window, temperatura, system prompt","Usar um agente de código em 1 tarefa pequena do trabalho"],
+    reads:[["Hello World de LLM",AK,"https://akitaonrails.com/2025/04/25/hello-world-de-llm-criando-seu-proprio-chat-de-i-a-que-roda-local/"],["Intro to LLMs (Karpathy)","YouTube","https://www.youtube.com/watch?v=zjkBMFhNj_g"],["Ollama","ollama.com","https://ollama.com"]]},
+  2:{t:"Modelos, custo e limites", g:"Comparar modelos com os mesmos prompts e entender quanto custa cada conversa.",
+    tasks:["Assistir “Deep Dive into LLMs” do Karpathy","Ler “LLMs + Agentes = competente o suficiente”","Rodar 3 modelos locais com os mesmos 10 prompts","Medir tokens/s de cada modelo na sua máquina","Calcular o custo de uma conversa típica via API (input, output, cache)"],
+    reads:[["LLMs + Agentes = competente o suficiente",AK,"https://akitaonrails.com/2026/10/12/llms-agentes-competente-o-suficiente/"],["Deep Dive into LLMs (Karpathy)","YouTube","https://www.youtube.com/watch?v=7xTGNNLPyMI"]]},
+  3:{t:"Agente no dia a dia", g:"Fazer o agente trabalhar no seu projeto Spring com regras claras e revisão de cada diff.",
+    tasks:["Ler “Clean Code pra Agentes de IA”","Escrever um CLAUDE.md para um projeto Spring Boot seu","Ler “Os Limites das LLMs”","Usar o agente todo dia da semana e revisar todos os diffs"],
+    deliv:"README com o que aprendeu e tabela comparando os modelos locais",
+    reads:[["Clean Code pra Agentes de IA",AK,"https://akitaonrails.com/2026/04/20/clean-code-para-agentes-de-ia/"],["Os Limites das LLMs",AK,"https://akitaonrails.com/2026/09/28/llms-sao-boas-em-reproduzir-o-que-existe-e-coisas-novas/"],["Minhas Skills de IA",AK,"https://akitaonrails.com/2026/09/17/falando-um-pouco-sobre-minhas-skills-de-ia/"]]},
+  4:{t:"DocChat v1: chat com streaming", g:"Spring Boot chamando a API do LLM na mão, sem framework, e o Angular mostrando a resposta chegando.",
+    tasks:["Endpoint Spring Boot chamando a API do LLM com RestClient/WebClient","Repassar a resposta em streaming via SSE","Angular consumindo o SSE e renderizando token a token","Guardar o histórico da conversa no Postgres","Subir tudo com Docker Compose"],
+    reads:[["Server-Sent Events (MDN)","MDN","https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events"]]},
+  5:{t:"DocChat v2: Spring AI", g:"Reescrever com Spring AI e decidir com dados se o framework vale a pena.",
+    tasks:["Reescrever o chat com o ChatClient do Spring AI","Trocar de provedor (Ollama ↔ API) só por configuração","Usar prompt templates em vez de strings concatenadas","Anotar o que o framework esconde e o que ele resolve","Escrever testes para o serviço de chat"],
+    reads:[["Spring AI Reference","spring.io","https://docs.spring.io/spring-ai/reference/"]]},
+  6:{t:"Saída estruturada e tool calling", g:"Fazer o modelo devolver objetos Java válidos e chamar funções do seu sistema.",
+    tasks:["Extrair dados de texto livre para um record Java com Bean Validation","Criar 2 ferramentas: consultar pedidos no Postgres e abrir ticket","Logar o loop inteiro do modelo escolhendo ferramentas","Fazer deploy num VPS barato ou no Fly.io"],
+    deliv:"DocChat em produção e um post explicando a arquitetura",
+    reads:[["Tools no Spring AI","spring.io","https://docs.spring.io/spring-ai/reference/api/tools.html"],["Parem de inventar desculpas e façam mais deploy",AK,"https://akitaonrails.com/2026/09/22/parem-de-inventar-desculpas-e-facam-mais-deploy-a-premissa-mudou/"]]},
+  7:{t:"RAG, parte 1: o pipeline", g:"Fazer o modelo responder sobre os seus dados, com citação da fonte.",
+    tasks:["Entender embeddings e similaridade de cosseno","Configurar pgvector no Postgres","Ingerir a documentação de um projeto real com chunking","Buscar top-k e montar o prompt com o contexto","Responder citando de qual trecho veio a resposta"],
+    reads:[["pgvector","GitHub","https://github.com/pgvector/pgvector"],["RAG no Spring AI","spring.io","https://docs.spring.io/spring-ai/reference/api/retrieval-augmented-generation.html"]]},
+  8:{t:"RAG, parte 2: medir e melhorar", g:"Transformar “acho que está bom” em uma taxa de acerto.",
+    tasks:["Montar 20 perguntas com resposta conhecida (seu eval)","Comparar chunk grande contra chunk pequeno","Testar busca híbrida: full-text do Postgres + vetor","Experimentar reranking","Registrar a taxa de acerto de cada variação"],
+    reads:[]},
+  9:{t:"Agentes, memória e MCP", g:"Expor um serviço seu para agentes e rodar tudo isolado.",
+    tasks:["Ler sobre memória de agentes e o LLM Wiki do Karpathy","Ler o toolkit de IA do Akita (ai-jail, ai-memory)","Escrever um servidor MCP em Java expondo um serviço seu","Conectar o servidor MCP no Claude Code","Rodar o agente dentro de um container (sandbox)"],
+    deliv:"DocChat com RAG em produção e servidor MCP publicado no GitHub",
+    reads:[["Memória de agentes: LLM Wiki",AK,"https://akitaonrails.com/en/2026/05/18/ai-agent-memory-karpathy-llm-wiki-agentmemory/"],["Toolkit de IA do Akita",AK,"https://akitaonrails.com/2026/05/24/dicas-e-toolkit-de-ia-do-akita-ai-jail-ai-memory-ai-usagebar/"],["Model Context Protocol","modelcontextprotocol.io","https://modelcontextprotocol.io"]]},
+  10:{t:"Seu próprio benchmark", g:"Rodar o seu eval contra vários modelos e ter números, não opinião.",
+    tasks:["Escolher 4 modelos: 2 comerciais e 2 open source locais","Rodar o eval de 20 perguntas em todos","Medir acerto, custo, latência e tokens gastos","Comparar com os benchmarks do Akita"],
+    deliv:"Tabela do benchmark próprio publicada",
+    reads:[["LLM Benchmark v4 (out/2026)",AK,"https://akitaonrails.com/2026/10/28/llm-benchmark-v4-gemini-4-argon-gpt-sol-6-1-terra-kimi-k3-1-pro-claude-sonnet-5-5/"],["Melhores LLMs open source caseiras",AK,"https://akitaonrails.com/2026/10/27/llm-benchmark-melhores-llms-open-source-hardware-caseiro/"]]},
+  11:{t:"Crítica e segurança", g:"Separar hype de realidade e atacar o próprio sistema antes que alguém ataque.",
+    tasks:["Ler o hot take sobre Harness e Loop Engineering","Ler o post sobre propagandas enganosas","Atacar o DocChat com prompt injection","Testar vazamento de dados via ferramentas","Corrigir o que encontrou e documentar"],
+    reads:[["Hot take: Harness, Loop Engineering…",AK,"https://akitaonrails.com/2026/08/18/hot-take-harness-loop-engineering-graph-engineering-sao-bullshit/"],["Propagandas enganosas",AK,"https://akitaonrails.com/2026/09/09/propagandas-enganosas-da-openai-anthropic-nvidia/"],["OWASP Top 10 para LLMs","owasp.org","https://genai.owasp.org/llm-top-10/"]]},
+  12:{t:"Do zero à produção em 1 semana", g:"Um problema real, resolvido com agente o tempo todo, com testes, CI e deploy.",
+    tasks:["Escolher um problema real, seu ou do trabalho","Construir com agente o tempo todo, com testes","Configurar CI","Fazer deploy"],
+    deliv:"Post-mortem: onde a IA acelerou, onde atrapalhou, onde você precisou saber mais",
+    reads:[["Zero to Post-Production in 1 Week",AK,"https://akitaonrails.com/en/2026/02/20/zero-to-post-production-in-1-week-using-ai-on-real-projects-behind-the-m-akita-chronicles/"],["Livro: Competente o Suficiente",AK,"https://akitaonrails.com/2026/10/13/auto-publiquei-meu-proprio-livro-ebook-competente-o-suficiente/"]]},
+};
+// ids de tarefa: w{semana}-{i}, entrega: w{semana}-e
+function taskList(w){const W=WEEKS[w];const l=W.tasks.map((x,i)=>({id:`w${w}-${i}`,txt:x}));if(W.deliv)l.push({id:`w${w}-e`,txt:W.deliv,deliv:true});return l}
+const ALL = []; for(let w=1;w<=12;w++) ALL.push(...taskList(w));
+const DELIVS = ALL.filter(t=>t.deliv);
+
+let S = {done:{}, notes:{}, start:"", log:[]};
+let mode = "loading", ref = null, sel = null;
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,"0");
+const todayISO = () => { const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}` };
+const fmtH = min => { const h=min/60; return h===0?"0":(h<10?h.toFixed(1):Math.round(h).toString()).replace(".",",") };
+
+function normalize(d){
+  d = d || {};
+  return {done:(d.done&&typeof d.done==="object")?{...d.done}:{}, notes:(d.notes&&typeof d.notes==="object")?{...d.notes}:{},
+    start:typeof d.start==="string"?d.start:"", log:Array.isArray(d.log)?d.log.filter(e=>e&&typeof e==="object").map(e=>({...e})):[]};
+}
+function weekPct(w){const l=taskList(w);return l.filter(t=>S.done[t.id]).length/l.length}
+function currentWeek(){
+  if(S.start){const s=new Date(S.start+"T00:00:00");const diff=Math.floor((Date.now()-s.getTime())/864e5);
+    if(diff<0) return {w:1,before:true,days:-diff}; return {w:Math.min(12,Math.floor(diff/7)+1),day:diff%7+1,over:diff>=84}}
+  for(let w=1;w<=12;w++) if(weekPct(w)<1) return {w,auto:true};
+  return {w:12,auto:true};
+}
+function status(w){const p=weekPct(w),c=currentWeek().w; if(p===1)return["done","concluída"]; if(w===c)return["now","agora"]; if(w<c)return["late","atrasada"]; return["next","a fazer"]}
+
+function renderStats(){
+  const done=ALL.filter(t=>S.done[t.id]).length, pct=Math.round(done/ALL.length*100);
+  $("st-pct").innerHTML=`${pct}<small>%</small>`; $("st-bar").style.width=pct+"%";
+  $("st-tasks").textContent=`${done} de ${ALL.length} tarefas`;
+  const c=currentWeek();
+  $("st-week").innerHTML=`${pad(c.w)}<small> / 12</small>`;
+  $("st-week-s").textContent = c.auto ? "Defina a data de início para acompanhar o calendário"
+    : c.before ? `O plano começa em ${c.days} dia${c.days>1?"s":""}` : c.over ? "Prazo do plano encerrado" : `Dia ${c.day} de 7 · ${WEEKS[c.w].t}`;
+  const tot=S.log.reduce((a,e)=>a+(+e.min||0),0);
+  $("st-hours").innerHTML=`${fmtH(tot)}<small> h</small>`;
+  $("st-hours-s").textContent = S.log.length ? `${S.log.length} sess${S.log.length>1?"ões":"ão"} registrada${S.log.length>1?"s":""}` : "Nenhuma sessão registrada";
+  const dd=DELIVS.filter(t=>S.done[t.id]).length, nx=DELIVS.find(t=>!S.done[t.id]);
+  $("st-del").innerHTML=`${dd}<small> / ${DELIVS.length}</small>`;
+  $("st-del-s").textContent = nx ? `Próxima: semana ${nx.id.slice(1,-2)}` : "Todas entregues";
+}
+function renderTimeline(){
+  const nav=$("timeline"); nav.innerHTML="";
+  PHASES.forEach((p,i)=>{
+    const sec=document.createElement("div"); sec.className="phase";
+    const fl=p.weeks.flatMap(taskList), fd=fl.filter(t=>S.done[t.id]).length;
+    sec.innerHTML=`<div class="phase-head"><b>Fase ${i+1} · ${p.name}</b><span class="label">${Math.round(fd/fl.length*100)}%</span></div>`;
+    p.weeks.forEach(w=>{
+      const [cls,lbl]=status(w), pc=Math.round(weekPct(w)*100);
+      const b=document.createElement("button"); b.className="week-btn"+(cls==="done"?" is-done":""); b.type="button";
+      b.setAttribute("aria-current", String(w===sel));
+      b.innerHTML=`<span class="n">S${pad(w)}</span><span class="t"></span><span class="pill ${cls}">${lbl}</span><div class="bar"><i style="width:${pc}%"></i></div>`;
+      b.querySelector(".t").textContent=WEEKS[w].t;
+      b.addEventListener("click",()=>select(w, window.innerWidth<=860));
+      sec.appendChild(b);
+    });
+    nav.appendChild(sec);
+  });
+}
+function renderDetail(){
+  const W=WEEKS[sel], ph=PHASES.findIndex(p=>p.weeks.includes(sel)), l=taskList(sel);
+  const [,lbl]=status(sel);
+  $("d-eyebrow").textContent=`Semana ${pad(sel)} de 12 · Fase ${ph+1} · ${lbl}`;
+  $("d-title").textContent=W.t; $("d-goal").textContent=W.g;
+  const dn=l.filter(t=>S.done[t.id]).length;
+  $("d-count").textContent=`Tarefas · ${dn} de ${l.length}`;
+  const ul=$("d-tasks"); ul.innerHTML="";
+  l.forEach(t=>{
+    const li=document.createElement("li"); li.className="task"+(t.deliv?" deliv":"")+(S.done[t.id]?" checked":"");
+    const id="cb-"+t.id;
+    li.innerHTML=`<label for="${id}"><input type="checkbox" id="${id}"><span>${t.deliv?'<span class="tag">Entrega</span>':""}</span></label>`;
+    li.querySelector("span").append(document.createTextNode(t.txt));
+    const cb=li.querySelector("input"); cb.checked=!!S.done[t.id];
+    cb.addEventListener("change",()=>{ if(cb.checked) S.done[t.id]=todayISO(); else delete S.done[t.id]; save(); renderAll(); if(cb.checked&&t.deliv) toast("Entrega concluída. Agora publique e escreva sobre ela."); });
+    ul.appendChild(li);
+  });
+  const rd=$("d-reads"); rd.innerHTML="";
+  if(!W.reads.length){ rd.innerHTML=`<li class="hint">Semana de prática: a referência é o seu próprio eval.</li>` }
+  W.reads.forEach(([lb,src,url])=>{const li=document.createElement("li");const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";
+    const s=document.createElement("span");s.className="src";s.textContent=src;a.append(s,document.createTextNode(lb));li.appendChild(a);rd.appendChild(li)});
+  const ta=$("notes"); if(document.activeElement!==ta) ta.value=S.notes["w"+sel]||"";
+  $("prev").disabled=sel===1; $("next").disabled=sel===12;
+}
+function renderLog(){
+  const ul=$("entries"); ul.innerHTML="";
+  const list=[...S.log].sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.ts||0)-(a.ts||0));
+  if(!list.length){ ul.innerHTML=`<li class="empty" style="display:block">Nenhuma sessão ainda. Registre a primeira acima: data, quanto tempo e o que fez.</li>` }
+  list.forEach(e=>{
+    const li=document.createElement("li");
+    const d=(e.date||"").split("-");
+    li.innerHTML=`<span class="d">${d.length===3?d[2]+"/"+d[1]:"--"} · S${pad(+e.wk||0)}</span><span class="txt"></span><span class="m">${(+e.min||0)} min</span><button class="del" type="button">remover</button>`;
+    li.querySelector(".txt").textContent=e.txt||"";
+    li.querySelector(".del").addEventListener("click",()=>{ S.log=S.log.filter(x=>x.id!==e.id); save(); renderAll(); toast("Sessão removida"); });
+    ul.appendChild(li);
+  });
+  // gráfico
+  const per=Array(13).fill(0); S.log.forEach(e=>{const w=+e.wk; if(w>=1&&w<=12) per[w]+=(+e.min||0)});
+  const mx=Math.max(9*60, ...per), cw=currentWeek().w, ch=$("chart"), cx=$("chart-x"); ch.innerHTML=""; cx.innerHTML="";
+  for(let w=1;w<=12;w++){
+    const col=document.createElement("div"); col.className="col"+(w===cw?" cur":"");
+    col.innerHTML=`<span class="hv">${per[w]?fmtH(per[w])+"h":""}</span><div class="b" style="height:${per[w]/mx*100}%"></div>`;
+    col.title=`Semana ${w}: ${fmtH(per[w])} h`;
+    ch.appendChild(col); const x=document.createElement("span"); x.textContent=pad(w); cx.appendChild(x);
+  }
+}
+function renderAll(){ renderStats(); renderTimeline(); renderDetail(); renderLog(); const st=$("start"); if(document.activeElement!==st) st.value=S.start||""; }
+function select(w, scroll){ sel=w; try{localStorage.setItem("rota-sel",String(w))}catch(e){} renderTimeline(); renderDetail(); if(scroll) $("detail").scrollIntoView({behavior:"smooth",block:"start"}); }
+
+// persistência
+let tSave=null, writing=false, again=false, dirty=false, readOnly=false;
+function save(){ if(readOnly){toast("Você não tem permissão para salvar aqui");return} dirty=true; clearTimeout(tSave); tSave=setTimeout(flush,500); }
+async function flush(){
+  if(writing){again=true;return} writing=true;
+  do{ again=false; const body=JSON.parse(JSON.stringify(S));
+    try{
+      if(mode==="cloud") await ref.set(body);
+      else { try{localStorage.setItem("rota-state",JSON.stringify(body))}catch(e){} }
+    }catch(e){
+      if(e&&e.code==="unavailable"){ await new Promise(r=>setTimeout(r,800+Math.random()*800)); again=true; }
+      else if(e&&e.code==="invalid_argument"){ readOnly=true; setSync("bad","Somente leitura"); }
+      else if(e&&e.code==="quota_exceeded"){ toast("Limite de armazenamento atingido. Remova sessões antigas."); }
+      else { setSync("bad","Erro ao salvar"); }
+    }
+  }while(again);
+  writing=false; dirty=false;
+  if(mode==="cloud"&&!readOnly) setSync("ok","Salvo na nuvem");
+}
+function setSync(cls,txt){const c=$("sync"); c.className="chip"+(cls?" "+cls:""); c.textContent=txt}
+let toastT=null; function toast(m){const t=$("toast"); t.textContent=m; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,2600)}
+
+function useLocal(){
+  mode="local"; setSync("","Salvo só neste navegador");
+  try{const raw=localStorage.getItem("rota-state"); if(raw) S=normalize(JSON.parse(raw))}catch(e){}
+  renderAll();
+}
+async function connect(){
+  let db=null;
+  try{ db = window.claude && window.claude.use ? await window.claude.use("db") : null }catch(e){ db=null }
+  if(!db) return useLocal();
+  ref=db.doc("tracker/estado");
+  const slow=setTimeout(()=>setSync("bad","Sem conexão com o armazenamento"),10000);
+  ref.onSnapshot(snap=>{
+    if(!snap.metadata.fromCache) clearTimeout(slow);
+    if(dirty||writing) return;
+    const next = snap.exists ? normalize(snap.data()) : S;
+    const changed = JSON.stringify(next)!==JSON.stringify(S) || mode!=="cloud";
+    S = next;
+    mode="cloud"; if(!readOnly) setSync("ok", snap.metadata.fromCache?"Sincronizando…":"Salvo na nuvem");
+    if(changed) renderAll();
+  }, err=>{ clearTimeout(slow); if(err&&err.code==="revoked"){ setSync("bad","Acesso encerrado"); readOnly=true } else useLocal(); });
+  mode="cloud";
+}
+
+// eventos
+$("prev").addEventListener("click",()=>sel>1&&select(sel-1));
+$("next").addEventListener("click",()=>sel<12&&select(sel+1));
+$("notes").addEventListener("input",e=>{ S.notes["w"+sel]=e.target.value; save(); });
+$("start").addEventListener("change",e=>{ S.start=e.target.value; save(); renderAll(); if(S.start){ select(currentWeek().w); toast("Calendário ajustado") } });
+$("logform").addEventListener("submit",e=>{
+  e.preventDefault();
+  const min=Math.round(+$("lg-min").value), txt=$("lg-txt").value.trim(), date=$("lg-date").value;
+  if(!date||!txt||!(min>0)) return;
+  S.log.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), ts:Date.now(), date, min, wk:wkSel, txt});
+  if(S.log.length>800) S.log=S.log.slice(-800);
+  save(); $("lg-txt").value=""; renderAll(); toast(`Sessão de ${min} min registrada`);
+});
+
+// dropdown de semana
+let wkSel=1, wkAct=1;
+function setWk(w){ wkSel=w; $("lg-wk-v").textContent="Semana "+pad(w); }
+function wkRender(){ const ul=$("lg-wk-list"); ul.innerHTML="";
+  for(let w=1;w<=12;w++){ const li=document.createElement("li"); li.role="option"; li.id="wkopt-"+w; li.textContent="Semana "+pad(w);
+    li.setAttribute("aria-selected",String(w===wkSel)); if(w===wkAct) li.className="act";
+    li.addEventListener("pointerdown",e=>e.preventDefault());
+    li.addEventListener("click",()=>{ setWk(w); wkClose(true); });
+    ul.appendChild(li); }
+  $("lg-wk").setAttribute("aria-activedescendant","wkopt-"+wkAct);
+  const a=$("wkopt-"+wkAct); if(a) a.scrollIntoView({block:"nearest"}); }
+function wkOpen(){ wkAct=wkSel; $("lg-wk-list").hidden=false; $("lg-wk-dd").classList.add("open"); $("lg-wk").setAttribute("aria-expanded","true"); wkRender(); }
+function wkClose(focus){ $("lg-wk-list").hidden=true; $("lg-wk-dd").classList.remove("open"); $("lg-wk").setAttribute("aria-expanded","false"); $("lg-wk").removeAttribute("aria-activedescendant"); if(focus) $("lg-wk").focus(); }
+const wkIsOpen=()=>!$("lg-wk-list").hidden;
+$("lg-wk").addEventListener("click",()=>wkIsOpen()?wkClose():wkOpen());
+$("lg-wk").addEventListener("keydown",e=>{
+  const k=e.key;
+  if(!wkIsOpen()){ if(k==="ArrowDown"||k==="ArrowUp"||k==="Enter"||k===" "){ e.preventDefault(); wkOpen(); } return; }
+  if(k==="ArrowDown"){e.preventDefault(); wkAct=Math.min(12,wkAct+1); wkRender();}
+  else if(k==="ArrowUp"){e.preventDefault(); wkAct=Math.max(1,wkAct-1); wkRender();}
+  else if(k==="Home"){e.preventDefault(); wkAct=1; wkRender();}
+  else if(k==="End"){e.preventDefault(); wkAct=12; wkRender();}
+  else if(k==="Enter"||k===" "){e.preventDefault(); setWk(wkAct); wkClose(true);}
+  else if(k==="Escape"||k==="Tab"){ if(k==="Escape") e.preventDefault(); wkClose(k==="Escape"); }
+});
+document.addEventListener("pointerdown",e=>{ if(wkIsOpen() && !$("lg-wk-dd").contains(e.target)) wkClose(); });
+$("lg-wk").addEventListener("blur",()=>setTimeout(()=>{ if(wkIsOpen() && !$("lg-wk-dd").contains(document.activeElement)) wkClose(); },0));
+
+// início
+(function init(){
+  $("lg-date").value=todayISO();
+  let saved=null; try{saved=+localStorage.getItem("rota-sel")}catch(e){}
+  sel = saved>=1&&saved<=12 ? saved : currentWeek().w;
+  renderAll();
+  setWk(currentWeek().w);
+  connect();
+})();
+</script>
+</body>
+</html>
